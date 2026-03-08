@@ -4199,7 +4199,7 @@
             `;
 
             // Summary stats
-            const sessoesRealizadas = events.filter(e => e.type === 'sessao').length;
+            const callsRealizadas = events.filter(e => e.type === 'sessao').length + events.filter(e => e.type === 'agendada' && e.isDone).length;
             const callsAgendadas = events.filter(e => e.type === 'agendada' && e.color === 'blue').length;
             const callsPendentes = events.filter(e => e.type === 'agendada' && e.color === 'yellow').length;
 
@@ -4208,7 +4208,7 @@
                 <div class="mt-6 pt-4 border-t border-gray-100 flex flex-wrap gap-4 text-sm">
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span class="text-gray-600">${sessoesRealizadas} calls realizadas</span>
+                        <span class="text-gray-600">${callsRealizadas} calls realizadas</span>
                     </div>
                     <div class="flex items-center gap-2">
                         <span class="w-2 h-2 rounded-full bg-blue-500"></span>
