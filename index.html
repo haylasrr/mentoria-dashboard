@@ -2773,6 +2773,17 @@
             }
         }
 
+        function toggleCallRealizada(mentoradoId, callIndex) {
+            const data = loadData();
+            const mentorado = data.mentorados.find(m => m.id === mentoradoId);
+            if (mentorado && mentorado.datasCalls && mentorado.datasCalls[callIndex] !== undefined) {
+                mentorado.datasCalls[callIndex].done = !mentorado.datasCalls[callIndex].done;
+                saveData(data);
+                showMentorado(mentoradoId);
+                showToast(mentorado.datasCalls[callIndex].done ? 'Call marcada como realizada!' : 'Call desmarcada');
+            }
+        }
+
         // =====================
         // NAVIGATION
         // =====================
@@ -4056,20 +4067,34 @@
                 });
             });
 
-            // Events: Calls agendadas (futuras)
+            // Events: Calls agendadas/realizadas
             if (m.datasCalls && m.datasCalls.length > 0) {
-                m.datasCalls.forEach(c => {
+                m.datasCalls.forEach((c, callIndex) => {
                     const callDate = new Date(c.data + 'T00:00:00');
-                    // Only show future calls that haven't been recorded as sessions
-                    const jaRealizada = sessoes.some(s => s.data === c.data);
-                    if (!jaRealizada) {
+                    const jaRealizadaSessao = sessoes.some(s => s.data === c.data);
+                    if (jaRealizadaSessao || c.done) {
+                        events.push({
+                            date: callDate,
+                            type: 'agendada',
+                            label: 'Call realizada',
+                            icon: '✅',
+                            color: 'green',
+                            details: c.hora || '',
+                            callIndex: callIndex,
+                            mentoradoId: m.id,
+                            isDone: true
+                        });
+                    } else {
                         events.push({
                             date: callDate,
                             type: 'agendada',
                             label: callDate < hoje ? 'Call pendente' : 'Call agendada',
                             icon: callDate < hoje ? '⚠️' : '📅',
                             color: callDate < hoje ? 'yellow' : 'blue',
-                            details: c.hora || ''
+                            details: c.hora || '',
+                            callIndex: callIndex,
+                            mentoradoId: m.id,
+                            isDone: false
                         });
                     }
                 });
@@ -4155,6 +4180,12 @@
                                     ${event.date.toLocaleDateString('pt-BR')}
                                 </span>
                                 ${isToday ? '<span class="text-xs bg-primary-500 text-white px-2 py-0.5 rounded-full">Hoje</span>' : ''}
+                                ${event.type === 'agendada' && event.mentoradoId ? `
+                                    <button onclick="toggleCallRealizada('${event.mentoradoId}', ${event.callIndex})"
+                                        class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-all ${event.isDone ? 'bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600' : 'bg-green-100 text-green-700 hover:bg-green-200'}">
+                                        ${event.isDone ? 'Desmarcar' : 'Marcar realizada'}
+                                    </button>
+                                ` : ''}
                             </div>
                             ${event.details ? `<p class="text-xs text-gray-500 mt-1">${event.details}</p>` : ''}
                         </div>
