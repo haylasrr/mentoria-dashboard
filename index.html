@@ -4055,31 +4055,26 @@
                 });
             }
 
-            // Events: Sessões realizadas
-            sessoes.forEach(s => {
-                events.push({
-                    date: new Date(s.data + 'T00:00:00'),
-                    type: 'sessao',
-                    label: 'Call realizada',
-                    icon: '✓',
-                    color: 'green',
-                    details: s.anotações ? s.anotações.substring(0, 50) + '...' : ''
-                });
-            });
+            // Track which dates already have a call entry (to avoid duplicates)
+            const datasJaAdicionadas = new Set();
 
-            // Events: Calls agendadas/realizadas
+            // Events: Calls agendadas (from "Datas das Calls Agendadas")
             if (m.datasCalls && m.datasCalls.length > 0) {
                 m.datasCalls.forEach((c, callIndex) => {
                     const callDate = new Date(c.data + 'T00:00:00');
-                    const jaRealizadaSessao = sessoes.some(s => s.data === c.data);
-                    if (jaRealizadaSessao || c.done) {
+                    const sessaoCorrespondente = sessoes.find(s => s.data === c.data);
+                    const realizada = sessaoCorrespondente || c.done;
+
+                    datasJaAdicionadas.add(c.data);
+
+                    if (realizada) {
                         events.push({
                             date: callDate,
                             type: 'agendada',
                             label: 'Call realizada',
                             icon: '✅',
                             color: 'green',
-                            details: c.hora || '',
+                            details: sessaoCorrespondente && sessaoCorrespondente.anotações ? sessaoCorrespondente.anotações.substring(0, 50) + '...' : (c.hora || ''),
                             callIndex: callIndex,
                             mentoradoId: m.id,
                             isDone: true
@@ -4099,6 +4094,20 @@
                     }
                 });
             }
+
+            // Events: Sessões realizadas (only if NOT already covered by a call date)
+            sessoes.forEach(s => {
+                if (!datasJaAdicionadas.has(s.data)) {
+                    events.push({
+                        date: new Date(s.data + 'T00:00:00'),
+                        type: 'sessao',
+                        label: 'Call realizada',
+                        icon: '✅',
+                        color: 'green',
+                        details: s.anotações ? s.anotações.substring(0, 50) + '...' : ''
+                    });
+                }
+            });
 
             // Event: Fim da mentoria
             if (m.dataFim) {
