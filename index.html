@@ -2773,16 +2773,6 @@
             }
         }
 
-        function toggleCallRealizada(mentoradoId, callIndex) {
-            const data = loadData();
-            const mentorado = data.mentorados.find(m => m.id === mentoradoId);
-            if (mentorado && mentorado.datasCalls && mentorado.datasCalls[callIndex] !== undefined) {
-                mentorado.datasCalls[callIndex].done = !mentorado.datasCalls[callIndex].done;
-                saveData(data);
-                showMentorado(mentoradoId);
-                showToast(mentorado.datasCalls[callIndex].done ? 'Call marcada como realizada!' : 'Call desmarcada');
-            }
-        }
 
         // =====================
         // NAVIGATION
@@ -4055,59 +4045,35 @@
                 });
             }
 
-            // Track which dates already have a call entry (to avoid duplicates)
-            const datasJaAdicionadas = new Set();
+            // Events: Sessões realizadas (fonte única de "call realizada")
+            sessoes.forEach(s => {
+                events.push({
+                    date: new Date(s.data + 'T00:00:00'),
+                    type: 'sessao',
+                    label: 'Call realizada',
+                    icon: '✅',
+                    color: 'green',
+                    details: s.anotações ? s.anotações.substring(0, 50) + '...' : ''
+                });
+            });
 
-            // Events: Calls agendadas (from "Datas das Calls Agendadas")
+            // Events: Calls agendadas (só as que NÃO têm sessão registrada)
             if (m.datasCalls && m.datasCalls.length > 0) {
-                m.datasCalls.forEach((c, callIndex) => {
+                m.datasCalls.forEach(c => {
                     const callDate = new Date(c.data + 'T00:00:00');
-                    const sessaoCorrespondente = sessoes.find(s => s.data === c.data);
-                    const realizada = sessaoCorrespondente || c.done;
-
-                    datasJaAdicionadas.add(c.data);
-
-                    if (realizada) {
-                        events.push({
-                            date: callDate,
-                            type: 'agendada',
-                            label: 'Call realizada',
-                            icon: '✅',
-                            color: 'green',
-                            details: sessaoCorrespondente && sessaoCorrespondente.anotações ? sessaoCorrespondente.anotações.substring(0, 50) + '...' : (c.hora || ''),
-                            callIndex: callIndex,
-                            mentoradoId: m.id,
-                            isDone: true
-                        });
-                    } else {
+                    const temSessao = sessoes.some(s => s.data === c.data);
+                    if (!temSessao) {
                         events.push({
                             date: callDate,
                             type: 'agendada',
                             label: callDate < hoje ? 'Call pendente' : 'Call agendada',
                             icon: callDate < hoje ? '⚠️' : '📅',
                             color: callDate < hoje ? 'yellow' : 'blue',
-                            details: c.hora || '',
-                            callIndex: callIndex,
-                            mentoradoId: m.id,
-                            isDone: false
+                            details: c.hora || ''
                         });
                     }
                 });
             }
-
-            // Events: Sessões realizadas (only if NOT already covered by a call date)
-            sessoes.forEach(s => {
-                if (!datasJaAdicionadas.has(s.data)) {
-                    events.push({
-                        date: new Date(s.data + 'T00:00:00'),
-                        type: 'sessao',
-                        label: 'Call realizada',
-                        icon: '✅',
-                        color: 'green',
-                        details: s.anotações ? s.anotações.substring(0, 50) + '...' : ''
-                    });
-                }
-            });
 
             // Event: Fim da mentoria
             if (m.dataFim) {
@@ -4189,12 +4155,6 @@
                                     ${event.date.toLocaleDateString('pt-BR')}
                                 </span>
                                 ${isToday ? '<span class="text-xs bg-primary-500 text-white px-2 py-0.5 rounded-full">Hoje</span>' : ''}
-                                ${event.type === 'agendada' && event.mentoradoId ? `
-                                    <button onclick="toggleCallRealizada('${event.mentoradoId}', ${event.callIndex})"
-                                        class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition-all ${event.isDone ? 'bg-gray-200 text-gray-600 hover:bg-red-100 hover:text-red-600' : 'bg-green-100 text-green-700 hover:bg-green-200'}">
-                                        ${event.isDone ? 'Desmarcar' : 'Marcar realizada'}
-                                    </button>
-                                ` : ''}
                             </div>
                             ${event.details ? `<p class="text-xs text-gray-500 mt-1">${event.details}</p>` : ''}
                         </div>
@@ -4208,7 +4168,7 @@
             `;
 
             // Summary stats
-            const callsRealizadas = events.filter(e => e.type === 'sessao').length + events.filter(e => e.type === 'agendada' && e.isDone).length;
+            const callsRealizadas = events.filter(e => e.type === 'sessao').length;
             const callsAgendadas = events.filter(e => e.type === 'agendada' && e.color === 'blue').length;
             const callsPendentes = events.filter(e => e.type === 'agendada' && e.color === 'yellow').length;
 
@@ -5196,6 +5156,11 @@
                 const mentorado = data.mentorados.find(m => m.id === mentoradoId);
                 if (mentorado) {
                     addToHistory(mentoradoId, mentorado.nome, 'sessao', `Sessão em ${formatDateBR(sessao.data)}`);
+
+                    // Auto-remove call agendada na mesma data (já virou sessão)
+                    if (mentorado.datasCalls && mentorado.datasCalls.length > 0) {
+                        mentorado.datasCalls = mentorado.datasCalls.filter(c => c.data !== sessao.data);
+                    }
                 }
             }
 
